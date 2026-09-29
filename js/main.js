@@ -34,7 +34,7 @@ let building = null;
 
 const app = {
   params: null,
-  styleKey: 'night',
+  styleKey: 'day',
 
   setStyle(key) { if (!STYLES[key]) return; this.styleKey = key; applyStyle(); rebuild(); this.sync(); },
   reroll() { this.params = paramsFromSeed(randomSeed(), null); rebuild(true); this.sync(); },
