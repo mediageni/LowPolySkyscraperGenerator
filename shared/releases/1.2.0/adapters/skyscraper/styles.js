@@ -17,15 +17,30 @@ function buildingMats(p, night, opts = {}) {
   const roof = body.clone().multiplyScalar(0.7);
   const win = opts.win ? new THREE.Color(opts.win) : col(p.color.win);
   return {
-    body: makeWindowMaterial({
-      color: body,
-      win,
-      floorH: p.floorH,
-      colW: p.colW,
-      winFill: p.winFill,
-      litChance: p.litChance,
-      night,
-      seed: p.seed,
+    body:
+      p.windowsOn === false
+        ? std({ color: body, roughness: 0.85 })
+        : makeWindowMaterial({
+            color: body,
+            win,
+            floorH: p.floorH,
+            colW: p.colW,
+            winFill: p.winFill,
+            litChance: p.litChance,
+            night,
+            seed: p.seed,
+          }),
+    trim: std({
+      color: opts.trim ?? 0xd5dce0,
+      roughness: 0.55,
+      metalness: 0.15,
+    }),
+    glass: std({
+      color: night ? 0xc3d9db : 0x66889d,
+      roughness: 0.3,
+      metalness: 0.15,
+      emissive: night ? 0xaa8050 : 0x000000,
+      emissiveIntensity: 0.35,
     }),
     roof: std({ color: roof, metalness: 0.2, roughness: 0.7 }),
     mast: std({ color: 0xbfc7d2, metalness: 0.9, roughness: 0.3 }),

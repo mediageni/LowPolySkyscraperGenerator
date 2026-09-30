@@ -8,13 +8,18 @@ import {
 } from "./params.js";
 import { STYLES } from "./styles.js";
 import { schemaFromSamples } from "@engine/state.js";
+import {
+  enrichBuilding,
+  BUILDING_SCHEMA,
+  BUILDING_OPTIONS,
+} from "./details.js";
 const samples = Object.keys(ARCHETYPES).flatMap((key) =>
   [0, 1, 42, 12345, 4294967295].map((seed) => paramsFromSeed(seed, key)),
 );
 export const adapter = {
   id: "skyscraper",
   path: "low-poly-skyscraper-generator",
-  label: "Low Poly Skyscraper",
+  label: "Skyscraper",
   noun: "skyscraper",
   filePrefix: "building",
   defaultLook: "day",
@@ -27,7 +32,12 @@ export const adapter = {
   paramsFromSeed,
   getDerived,
   setDerived,
-  schema: schemaFromSamples(samples, SLIDERS),
+  schema: schemaFromSamples(samples, SLIDERS, BUILDING_SCHEMA),
+  enrich: enrichBuilding,
+  legacyConfig: (params) => params?.detailVersion === undefined,
+  options: BUILDING_OPTIONS,
+  optionsLabel: "Architecture & parts",
+  firstType: "deco",
   build: buildBuilding,
   materials: (style, params) => style.materials(params),
   paletteSlots: {
@@ -37,6 +47,8 @@ export const adapter = {
     plaza: "ground",
     foliage: "foliage",
     trunk: "trunk",
+    trim: "trim",
+    glass: "glass",
   },
   camera: {
     fov: 45,

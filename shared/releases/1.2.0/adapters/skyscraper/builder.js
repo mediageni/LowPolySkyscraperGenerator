@@ -1,7 +1,6 @@
 // Pure builder: params -> THREE.Group (a flat-shaded low-poly skyscraper).
 // A building is a BASE + a vertical stack of setback SECTIONS + a ROOF, optionally
-// repeated in a layout. Windows are drawn by a shader patched into the body material:
-// a world-space grid on vertical faces only, lit per-cell at night (xyz's approach).
+// repeated in a layout. Exportable panes retain the original world-space grid.
 
 import * as THREE from "three";
 import {
@@ -11,6 +10,9 @@ import {
 export const makeWindowMaterial = (options) =>
   gridMaterial({ ...options, kind: "tower" });
 import { makeRng } from "@engine/rng.js";
+import { addTowerDetails } from "./details.js";
+import { part, mergePart } from "@engine/geometry.js";
+import { detailed } from "@engine/options.js";
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
@@ -50,6 +52,7 @@ function buildTower(p, mats, hScale) {
   const n = clamp(Math.round(p.sections), 1, 6);
   const setb = p.setback,
     mode = p.setbackMode;
+  const sections = [];
 
   // base
   if (p.baseType === "extruded")
@@ -118,6 +121,7 @@ function buildTower(p, mats, hScale) {
     } // 'one': step on one side
     const h = (avail * wts[i]) / sum;
     g.add(boxMesh(w, h, d, mats.body, cx, y, cz));
+    sections.push({ w, d, x: cx, z: cz, y, h });
     y += h;
     if (i === n - 1) {
       topW = w;
@@ -129,11 +133,19 @@ function buildTower(p, mats, hScale) {
   }
 
   // roof on top of the last section
-  g.add(buildRoof(p, mats.roof, topW, topD, topCx, topCz, topY));
+  if (p.roofOn !== false) {
+    const roof = buildRoof(p, mats.roof, topW, topD, topCx, topCz, topY);
+    roof.name = "Roof";
+    g.add(roof);
+  }
 
   // optional mast / antenna (spire)
-  if (p.mast > 0.02) {
-    const mh = p.mast * Ht * 0.5,
+  if (
+    p.mastOn !== false &&
+    p.roofOn !== false &&
+    (p.mast > 0.02 || detailed(p))
+  ) {
+    const mh = (p.mast > 0.02 ? p.mast : 0.14) * Ht * 0.5,
       t = Math.max(0.4, W * 0.04);
     g.add(
       boxMesh(
@@ -147,6 +159,14 @@ function buildTower(p, mats, hScale) {
       ),
     );
   }
+  addTowerDetails(
+    g,
+    p,
+    mats,
+    sections,
+    { w: topW, d: topD, x: topCx, z: topCz, y: topY },
+    baseH,
+  );
   return g;
 }
 
@@ -302,6 +322,8 @@ function makeTree(r, mats) {
 // --- plaza slab + trees scattered in the ring around the footprint -----------
 function buildPlaza(p, mats, hx, hz) {
   const g = new THREE.Group();
+  g.name = "Plaza";
+  if (p.plazaOn === false) return { group: g, plazaTop: 0 };
   const r = makeRng((p.seed ^ 0x9e3779b9) >>> 0);
   const pad = Math.max(6, Math.max(hx, hz) * 0.55);
   const PHX = hx + pad,
@@ -316,21 +338,29 @@ function buildPlaza(p, mats, hx, hz) {
   plaza.receiveShadow = true;
   plaza.castShadow = true;
   g.add(plaza);
+  const landscape = part(g, "Landscape");
 
   const count = Math.min(40, Math.round(8 + (PHX + PHZ) * 0.45));
   const margin = 1.4;
   let placed = 0,
     tries = 0;
-  while (placed < count && tries < count * 10) {
+  while (p.treesOn !== false && placed < count && tries < count * 10) {
     tries++;
     const x = (r() * 2 - 1) * (PHX - 1.2),
       z = (r() * 2 - 1) * (PHZ - 1.2);
     if (Math.abs(x) < hx + margin && Math.abs(z) < hz + margin) continue; // keep off the building
     const t = makeTree(r, mats);
     t.position.set(x, PH, z);
-    g.add(t);
+    if (detailed(p)) {
+      t.updateMatrix();
+      for (const node of [...t.children]) {
+        node.applyMatrix4(t.matrix);
+        landscape.add(node);
+      }
+    } else landscape.add(t);
     placed++;
   }
+  if (detailed(p)) mergePart(landscape);
   return { group: g, plazaTop: PH };
 }
 
